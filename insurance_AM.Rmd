@@ -2,7 +2,7 @@
 title: "stat_52700_project"
 author: "Abir Mukherjee"
 date: "`r Sys.Date()`"
-output: github_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
