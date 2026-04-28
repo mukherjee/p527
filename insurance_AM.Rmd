@@ -1,0 +1,196 @@
+---
+title: "stat_52700_project"
+author: "Abir Mukherjee"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+insurance_orig <- read.csv("insurance.csv")
+```
+
+
+```{r}
+glimpse(insurance_orig)
+```
+
+```{r}
+insurance <- as_tibble(insurance_orig)
+glimpse(insurance)
+colnames(insurance)
+```
+```{r}
+dim(insurance)
+colSums(is.na(insurance))
+insurance %>%
+  duplicated() %>%
+  sum()
+insurance_clean <- insurance %>%
+  distinct()
+insurance_clean <- insurance_clean %>%
+  mutate(
+    sex = as.factor(sex),
+    smoker = as.factor(smoker),
+    region = as.factor(region)
+  )
+
+glimpse(insurance_clean)
+```
+
+
+```{r}
+insurance_clean <- insurance_clean %>%
+  mutate(
+    obese = bmi >= 30,
+    age_group = case_when(
+      age < 30 ~ "young",
+      age < 50 ~ "middle",
+      TRUE ~ "older"
+    )
+  )
+head(insurance_clean)
+```
+
+```{r}
+insurance_clean %>%
+  summarise(
+    count = n(),
+    mean_age = mean(age),
+    mean_bmi = mean(bmi),
+    mean_children = mean(children),
+    mean_charges = mean(charges),
+    median_charges = median(charges),
+    sd_charges = sd(charges)
+  )
+```
+
+```{r}
+# Average charges by smoking status
+insurance_clean %>%
+  group_by(smoker) %>%
+  summarise(
+    count = n(),
+    mean_charges = mean(charges),
+    median_charges = median(charges),
+    .groups = "drop"
+  )
+
+
+# Average charges by age group and smoker
+insurance_clean %>%
+  group_by(age_group, smoker) %>%
+  summarise(
+    count = n(),
+    mean_charges = mean(charges),
+    median_charges = median(charges),
+    .groups = "drop"
+  )
+```
+
+```{r}
+ggplot(insurance_clean, aes(x = charges)) +
+  geom_histogram(bins = 30)
+
+# Scatterplot: age vs charges
+ggplot(insurance_clean, aes(x = age, y = charges, color=smoker)) +
+  geom_point()
+
+# Scatterplot: bmi vs charges
+ggplot(insurance_clean, aes(x = bmi, y = charges, color=smoker)) +
+  geom_point()
+
+# Boxplot: charges by smoker
+ggplot(insurance_clean, aes(x = smoker, y = charges)) +
+  geom_boxplot()
+
+# Boxplot: charges by region
+ggplot(insurance_clean, aes(x = region, y = charges)) +
+  geom_boxplot()
+
+```
+
+
+```{r}
+numeric_data <- insurance_clean %>%
+  select(age, bmi, children, charges)
+
+cor_matrix <- cor(numeric_data)
+
+round(cor_matrix, 2)
+```
+# Linear regression. One predictor (age)
+```{r}
+fit_age <- lm(charges ~ age, data = insurance_clean)
+
+fit_age
+summary(fit_age)
+```
+
+# Multiple regression
+```{r}
+fit_lm <- lm(charges ~ age + bmi + children + sex + smoker + region,
+             data = insurance_clean)
+
+fit_lm
+summary(fit_lm)
+```
+
+# Splitting data to Test/Train
+```{r}
+set.seed(1)
+
+train_ids <- sample(
+  1:nrow(insurance_clean),
+  size = round(0.70 * nrow(insurance_clean))
+)
+
+train <- insurance_clean[train_ids, ]
+test <- insurance_clean[-train_ids, ]
+```
+
+# Comparing two models with numeric only and numeric + smoker
+```{r}
+fit_lm1 <- lm(charges ~ age + bmi + children, data = train)
+fit_lm2 <- lm(charges ~ age + bmi + children + smoker, data = train)
+test <- test %>%
+  mutate(
+    pred_lm1 = predict(fit_lm1, newdata = test),
+    pred_lm2 = predict(fit_lm2, newdata = test)
+  )
+
+mse <- function(actual, predicted) {
+  mean((actual - predicted)^2)
+}
+
+model_results <- tibble(
+  model = c("Linear regression: numeric predictors only",
+            "Linear regression: numeric + smoker"),
+  test_mse = c(
+    mse(test$charges, test$pred_lm1),
+    mse(test$charges, test$pred_lm2)
+  )
+)
+
+model_results
+```
+
+```{r}
+ggplot(test, aes(x = charges, y = pred_lm2)) +
+  geom_point() +
+  geom_abline()
+```
+
+```{r}
+
+```
+
